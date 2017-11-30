@@ -20,6 +20,8 @@ if (!defined('_PS_VERSION_')) {
 class Manufacturercarousel extends Module
 {
     protected $config_form = false;
+    protected $_errors = [];
+    protected $_html = '';
 
     public function __construct()
     {
@@ -84,9 +86,9 @@ class Manufacturercarousel extends Module
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+        $this->_html .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
 
-        return $output.$this->renderForm();
+        return $this->_html.$this->renderForm();
     }
 
     /**
@@ -132,9 +134,9 @@ class Manufacturercarousel extends Module
                     array(
                         'col' => 4,
                         'type' => 'text',
-                        'desc' => $this->l('Show manufacturer name'),
+                        'desc' => $this->l('Title to be displayed for the slider block'),
                         'name' => 'MF_TITLE',
-                        'label' => $this->l('Enable Manufacturers Name'),
+                        'label' => $this->l('Block title'),
                         'required' => true,
                     ),
                     array(
@@ -148,14 +150,14 @@ class Manufacturercarousel extends Module
                     array(
                         'col' => 4,
                         'type' => 'text',
-                        'desc' => $this->l('How many logo\'s should be visible'),
+                        'desc' => $this->l('How many logos should be visible'),
                         'name' => 'MF_PER_ROW',
-                        'label' => $this->l('Logo\'s per row'),
+                        'label' => $this->l('Logos per row'),
                         'required' => true,
                     ),
                     array(
                         'type' => 'select',
-                        'desc' => 'How the logo\'s should be sorted',
+                        'desc' => 'How the logos should be sorted',
                         'name' => 'MF_MAN_ORDER',
                         'label' => $this->l('Order by'),
                         'options' => array(
@@ -229,10 +231,26 @@ class Manufacturercarousel extends Module
     {
         $form_values = $this->getConfigFormValues();
 
-        foreach (array_keys($form_values) as $key) {
-            Configuration::updateValue($key, Tools::getValue($key));
+        if (!Validate::isGenericName(Tools::getValue('MF_TITLE')))
+            $this->_errors[] = $this->l('Bad title');
+        if (!Validate::isUnsignedInt(Tools::getValue('MF_MAN_NUMBER')))
+            $this->_errors[] = $this->l('Bad manufacturer number');
+        if (!Validate::isUnsignedInt(Tools::getValue('MF_PER_ROW')))
+            $this->_errors[] = $this->l('Bad items per row count');
+        
+
+        if(!$this->_errors)
+        {
+            foreach (array_keys($form_values) as $key) {
+                Configuration::updateValue($key, Tools::getValue($key));
+            }
+            $this->_html .= $this->displayConfirmation($this->l('Settings Updated!'));
         }
-        Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules', true).'&conf=4&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name);
+            
+        else {  
+            $this->_html .= $this->displayError(implode($this->_errors, '<br />'));  
+        }
+    
     }
 
     /**
@@ -284,6 +302,7 @@ class Manufacturercarousel extends Module
                 break;
         }
         $manufacturers = $this->getManufactures($order, (int)Configuration::get('MF_MAN_NUMBER'));
+
         foreach ($manufacturers as &$manufacturer)
         {
             if(file_exists(_PS_MANU_IMG_DIR_.$manufacturer['id_manufacturer'].'.jpg'))
